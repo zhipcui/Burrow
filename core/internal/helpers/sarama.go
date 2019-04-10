@@ -50,6 +50,13 @@ var kafkaVersions = map[string]sarama.KafkaVersion{
 	"2.1.0":    sarama.V2_1_0_0,
 }
 
+var SASLMechanisms = map[string]sarama.SASLMechanism{
+	"":              sarama.SASLTypePlaintext,
+	"PLAIN":         sarama.SASLTypePlaintext,
+	"SCRAM-SHA-256": sarama.SASLTypeSCRAMSHA256,
+	"SCRAM-SHA-512": sarama.SASLTypeSCRAMSHA512,
+}
+
 func parseKafkaVersion(kafkaVersion string) sarama.KafkaVersion {
 	version, ok := kafkaVersions[string(kafkaVersion)]
 	if !ok {
@@ -57,6 +64,15 @@ func parseKafkaVersion(kafkaVersion string) sarama.KafkaVersion {
 	}
 
 	return version
+}
+
+func parseSASLMechanism(mechanism string) sarama.SASLMechanism {
+	SASLMechanism, ok := SASLMechanisms[string(mechanism)]
+	if !ok {
+		panic("Unknown Kafka SASL mechanism: " + mechanism)
+	}
+
+	return SASLMechanism
 }
 
 // GetSaramaConfigFromClientProfile takes the name of a client-profile configuration entry and returns a sarama.Config
@@ -113,10 +129,25 @@ func GetSaramaConfigFromClientProfile(profileName string) *sarama.Config {
 	if viper.IsSet(configRoot + ".sasl") {
 		saslName := viper.GetString(configRoot + ".sasl")
 
+		viper.SetDefault("sasl." + saslName + ".mechanism", "PLAIN")
+
 		saramaConfig.Net.SASL.Enable = true
 		saramaConfig.Net.SASL.Handshake = viper.GetBool("sasl." + saslName + ".handshake-first")
 		saramaConfig.Net.SASL.User = viper.GetString("sasl." + saslName + ".username")
 		saramaConfig.Net.SASL.Password = viper.GetString("sasl." + saslName + ".password")
+		saramaConfig.Net.SASL.Mechanism = parseSASLMechanism(viper.GetString("sasl." + saslName + ".mechanism"))
+
+		if saramaConfig.Net.SASL.Mechanism == sarama.SASLTypeSCRAMSHA512 {
+			saramaConfig.Net.SASL.SCRAMClientGenerator = func() sarama.SCRAMClient {
+				return &XDGSCRAMClient{HashGeneratorFcn: SHA512}
+			}
+		} else if saramaConfig.Net.SASL.Mechanism == sarama.SASLTypeSCRAMSHA256 {
+			saramaConfig.Net.SASL.SCRAMClientGenerator = func() sarama.SCRAMClient {
+				return &XDGSCRAMClient{HashGeneratorFcn: SHA256}
+			}
+		} else {
+			// The Mechanism must be `PLAINT`.
+		}
 	}
 
 	return saramaConfig
