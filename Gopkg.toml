@@ -1,6 +1,7 @@
 [[constraint]]
   name = "github.com/Shopify/sarama"
-  version = "1.20.1"
+  branch = "master"
+  source = "git@github.com:zhipcui/sarama.git"
 
 [[constraint]]
   name = "go.uber.org/zap"
@@ -41,3 +42,7 @@
 [[constraint]]
   name = "gopkg.in/gomail.v2"
   branch = "v2"
+
+[[constraint]]
+  name = "github.com/xdg/scram"
+  branch = "master"
